@@ -6,6 +6,9 @@
 Для работы требует дополнительно файл settings.py вида:
 
 token = ХХХХХХ # VK API app token
+
 #[Telegram]
+
 bot_token = XXXXX # Telegram Bot BotFather token
+
 bitlytoken = ХХХХ # Bit.ly profile token (optional)
