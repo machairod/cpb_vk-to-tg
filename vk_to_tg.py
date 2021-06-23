@@ -7,7 +7,7 @@ from cpbgroups import groups, channel
 bot = telebot.TeleBot(bot_token)
 
 
-# получаем последние 5 постов со стен групп вк
+# получаем последние посты со стен групп вк
 def get_wall_posts(group,count):
     count=count
     if group.isdigit():
@@ -103,8 +103,11 @@ def check_wall_posts(group):
                         # если прикреп видео - обработка массива
                         if len(videos) > 0:
                             video = videos[0]
-                            vid='http://vk.com/video'+str(video['video']['owner_id'])+"_"+str(video["video"]['id'])+"?access_key="+str(video['video']['access_key'])
-                            send_post[date]['video'].append(vid)
+                            owner_id = str(video['video']['owner_id'])
+                            vid_id = str(video["video"]['id'])
+                            access_key = str(video['video']['access_key'])
+                            url = f"https://vk.com/video{owner_id}_{vid_id}"
+                            send_post[date]['video'].append(url)
 
                         # если прикреп файл - обработка массива
                         for doc in docs:
@@ -154,29 +157,24 @@ def send_posts(group):
         # В телеграмме есть ограничения на длину одного сообщения в 4091 символ, разбиваем длинные сообщения на части
         text = src[post]['text']
         for msg in split(text):
-            continue
-            #bot.send_message(channel, msg, disable_web_page_preview=True)
+            bot.send_message(channel, msg, disable_web_page_preview=True)
 
         if 'link' in src[post]:
             link = src[post]['link']
-            #bot.send_message(channel,link, disable_web_page_preview=False)
+            bot.send_message(channel,link, disable_web_page_preview=False)
 
         if 'photo' in src[post]:
             photo = src[post]['photo'][0]
-            #bot.send_photo(channel, photo)
+            bot.send_photo(channel, photo)
 
         if 'video' in src[post]:
             video = src[post]['video'][0]
-            try:
-                bot.send_video(channel, video)
-            except:
-                print(Exception)
-            finally: continue
+            bot.send_message(channel,video, disable_web_page_preview=False)
 
         if 'doc' in src[post]:
             docs = src[post]['doc']
-            # for doc in docs:
-            #     bot.send_document(channel, doc)
+            for doc in docs:
+                bot.send_document(channel, doc)
     time.sleep(10)
     os.remove(f'{group}.json')
     os.remove(f'{group}-posts.json')
@@ -186,12 +184,8 @@ if __name__ == '__main__':
     print(time.ctime()+" GMT 0")
 
     for group in groups:
-        get_wall_posts(group,10)
+        get_wall_posts(group,5)
         check_wall_posts(group)
         send_posts(group)
         print(f'made for {group}')
         time.sleep(10)
-
-
-    # with open('cpbgroups.py', 'w') as vkgroups:
-    #     vkgroups.write("channel ='@zmeeust_python'\ngroups ={'spb_cpb': 1523272395, 'msk_cpb': 1523272391, 'cpb_vl':1523272392,'cpb_corp':1523272393,'cpb_krasnodar':1523272394,'irk_cpb': 1523272396,'krim_cpb': 1523272397, '189820518': 1523272398,'102325800': 1523272397}")
