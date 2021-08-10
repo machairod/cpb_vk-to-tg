@@ -1,5 +1,7 @@
 # This Python file uses the following encoding: utf-8
 import requests, os, telebot, json, time
+settings = os.path.abspath('settings.txt')
+cpbgroups = os.path.abspath('cpbgroups.txt')
 from settings import token, bot_token, bitlytoken
 from cpbgroups import groups, channel
 
@@ -7,25 +9,26 @@ from cpbgroups import groups, channel
 bot = telebot.TeleBot(bot_token)
 
 
-# получаем последние посты со стен групп вк
+# получаем последние 5 постов со стен групп вк
 def get_wall_posts(group,count):
-    count=count
+    count = count
     if group.isdigit():
-        url = f"https://api.vk.com/method/wall.get?owner_id=-{group}&count={count}&access_token={token}&v=5.52"
+        url = 'https://api.vk.com/method/wall.get?owner_id=-'+str(group)+'&count='+str(count)+'&access_token='+str(token)+'&v=5.52'
     else:
-        url = f"https://api.vk.com/method/wall.get?domain={group}&count={count}&access_token={token}&v=5.52"
-
+        url = 'https://api.vk.com/method/wall.get?domain='+str(group)+'&count='+str(count)+'&access_token='+str(token)+'&v=5.52'
+    file = group + '.json'
     req = requests.get(url)
     src = req.json()
 
-    with open(f'{group}.json', 'w+') as file:
+    with open(file, 'w+') as file:
         json.dump(src, file, ensure_ascii=False, indent=4)
 
 
 # проверяем на критерии, сверяем с датой последнего обработанного, готовим под отправку
 def check_wall_posts(group):
+    file = group + '.json'
     # приняли из json данные выгрузки
-    with open(f'{group}.json', 'r', encoding='utf-8') as file:
+    with open(file, 'r', encoding='utf-8') as file:
         src = json.load(file)
     posts = reversed(src['response']['items'])
 
@@ -80,10 +83,11 @@ def check_wall_posts(group):
                         if add['type'] == 'link':
                             link = add['link']['url']
                             # сократили ссылку
-                            data = json.dumps({"long_url": f'{link}'})
+                            data = json.dumps({"long_url": link})
+                            bttoken='Bearer '+ bitlytoken
                             response = requests.post("https://api-ssl.bitly.com/v4/shorten",
                                                      data=data,
-                                                     headers={'Authorization': f'Bearer {bitlytoken}'})
+                                                     headers={'Authorization': bttoken})
                             src = response.json()
                             send_post[date]['link'] = src['link']
 
@@ -106,7 +110,7 @@ def check_wall_posts(group):
                             owner_id = str(video['video']['owner_id'])
                             vid_id = str(video["video"]['id'])
                             access_key = str(video['video']['access_key'])
-                            url = f"https://vk.com/video{owner_id}_{vid_id}"
+                            url = "https://vk.com/video"+owner_id+"_"+vid_id
                             send_post[date]['video'].append(url)
 
                         # если прикреп файл - обработка массива
@@ -115,7 +119,8 @@ def check_wall_posts(group):
                             send_post[date]['doc'].append(dl)
 
     # здесь возвращаем док с постами, готовыми к отправке
-    with open(f'{group}-posts.json', 'w+') as file:
+    file = group + '-posts.json'
+    with open(file, 'w+') as file:
         json.dump(send_post, file, ensure_ascii=False, indent=4)
 
 
@@ -134,7 +139,7 @@ def check_wall_posts(group):
 
 #отправляем посты в телеграм канал
 def send_posts(group):
-
+# В телеграмме есть ограничения на длину одного сообщения в 4091 символ, разбиваем длинные сообщения на части
     def split(text):
         message_breakers = ['\n']
         max_message_length = 4091
@@ -150,11 +155,12 @@ def send_posts(group):
     global channel
 
     # приняли из json данные выгрузки
-    with open(f'{group}-posts.json', 'r', encoding='utf-8') as file:
+    file = str(group)+'-posts.json'
+    with open(file, 'r', encoding='utf-8') as file:
         src = json.load(file)
     for post in src.keys():
 
-        # В телеграмме есть ограничения на длину одного сообщения в 4091 символ, разбиваем длинные сообщения на части
+
         text = src[post]['text']
         for msg in split(text):
             bot.send_message(channel, msg, disable_web_page_preview=True)
@@ -176,16 +182,20 @@ def send_posts(group):
             for doc in docs:
                 bot.send_document(channel, doc)
     time.sleep(10)
-    os.remove(f'{group}.json')
-    os.remove(f'{group}-posts.json')
+    #os.remove(f'{group}.json')
+    file1 = str(group)+'.json'
+    os.remove(file1)
+    #os.remove(f'{group}-posts.json')
+    file2 = str(group)+'-posts.json'
+    os.remove(file2)
 
 
 if __name__ == '__main__':
     print(time.ctime()+" GMT 0")
 
     for group in groups:
-        get_wall_posts(group,5)
+        get_wall_posts(group,3)
         check_wall_posts(group)
         send_posts(group)
-        print(f'made for {group}')
+        print('made for '+group)
         time.sleep(10)
