@@ -1,13 +1,16 @@
 # This Python file uses the following encoding: utf-8
-import requests, os, telebot, json, time
-settings = os.path.abspath('settings.txt')
-cpbgroups = os.path.abspath('cpbgroups.txt')
-from settings import token, bot_token, bitlytoken
+import requests, os, telebot, json, time, configparser
 from cpbgroups import groups, channel
+
+config = configparser.ConfigParser()
+config.read('settings.ini')
+
+token = config['VK']['token']
+bot_token = config['Telegram']['bot_token']
+bitlytoken = config['bitly']['bitlytoken']
 
 # Инициализируем телеграмм бота
 bot = telebot.TeleBot(bot_token)
-
 
 # получаем последние 5 постов со стен групп вк
 def get_wall_posts(group,count):
@@ -22,7 +25,6 @@ def get_wall_posts(group,count):
 
     with open(file, 'w+') as file:
         json.dump(src, file, ensure_ascii=False, indent=4)
-
 
 # проверяем на критерии, сверяем с датой последнего обработанного, готовим под отправку
 def check_wall_posts(group):
