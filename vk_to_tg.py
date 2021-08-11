@@ -173,9 +173,8 @@ def send_posts(group):
     file = path + '/' + str(group)+'-posts.json'
     with open(file, 'r', encoding='utf-8') as file:
         src = json.load(file)
+
     for post in src.keys():
-
-
         text = src[post]['text']
         for msg in split(text):
             bot.send_message(channel, msg, disable_web_page_preview=True)
@@ -196,6 +195,7 @@ def send_posts(group):
             docs = src[post]['doc']
             for doc in docs:
                 bot.send_document(channel, doc)
+
     time.sleep(10)
     #os.remove(f'{group}.json')
     group_src = path + '/' + str(group)+'.json'
