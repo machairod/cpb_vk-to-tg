@@ -1,15 +1,19 @@
 # This Python file uses the following encoding: utf-8
 import requests, os, telebot, json, time, configparser
-from cpbgroups import groups, channel
 
 config = configparser.ConfigParser()
 config.read('settings.ini')
 
 token = config['VK']['token']
 bot_token = config['Telegram']['bot_token']
+channel = config['Telegram']['channel']
 bitlytoken = config['bitly']['bitlytoken']
 
 path = os.getcwd()
+
+config.read('cpbgroups.py')
+groups = config.options('groups')
+
 
 # Инициализируем телеграмм бота
 bot = telebot.TeleBot(bot_token)
@@ -43,7 +47,7 @@ def check_wall_posts(group):
     posts = reversed(src['response']['items'])
 
     # дата публикации в юникс последнего обработанного поста, основной идентификатор
-    postdate = groups[group]
+    postdate = int(config['groups'][group])
     # список дат публикации новых постов
     new_postdate = []
     # словарь готовых к отправке постов
@@ -149,6 +153,7 @@ def check_wall_posts(group):
 
 #отправляем посты в телеграм канал
 def send_posts(group):
+
 # В телеграмме есть ограничения на длину одного сообщения в 4091 символ, разбиваем длинные сообщения на части
     def split(text):
         message_breakers = ['\n']
@@ -202,8 +207,6 @@ def send_posts(group):
 
 if __name__ == '__main__':
     print(time.ctime()+" GMT 0")
-    # link = os.getcwd()
-
 
     for group in groups:
         get_wall_posts(group,3)
