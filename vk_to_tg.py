@@ -9,10 +9,12 @@ token = config['VK']['token']
 bot_token = config['Telegram']['bot_token']
 bitlytoken = config['bitly']['bitlytoken']
 
+path = os.getcwd()
+
 # Инициализируем телеграмм бота
 bot = telebot.TeleBot(bot_token)
 
-# получаем последние 5 постов со стен групп вк
+# получаем последние *count постов со стен групп вк
 def get_wall_posts(group,count):
     count = count
     if group.isdigit():
@@ -32,14 +34,18 @@ def check_wall_posts(group):
     # приняли из json данные выгрузки
     with open(file, 'r', encoding='utf-8') as file:
         src = json.load(file)
+    if 'response' not in src.keys():
+
+        if 'error' in src.keys():
+            return src['error']['error_msg']
+        else return src.keys()
+
     posts = reversed(src['response']['items'])
 
     # дата публикации в юникс последнего обработанного поста, основной идентификатор
     postdate = groups[group]
-
     # список дат публикации новых постов
     new_postdate = []
-
     # словарь готовых к отправке постов
     send_post = {}
 
@@ -194,6 +200,8 @@ def send_posts(group):
 
 if __name__ == '__main__':
     print(time.ctime()+" GMT 0")
+    # link = os.getcwd()
+
 
     for group in groups:
         get_wall_posts(group,3)
