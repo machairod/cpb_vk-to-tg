@@ -21,7 +21,7 @@ def get_wall_posts(group,count):
         url = 'https://api.vk.com/method/wall.get?owner_id=-'+str(group)+'&count='+str(count)+'&access_token='+str(token)+'&v=5.52'
     else:
         url = 'https://api.vk.com/method/wall.get?domain='+str(group)+'&count='+str(count)+'&access_token='+str(token)+'&v=5.52'
-    file = group + '.json'
+    file = path + '/' + group + '.json'
     req = requests.get(url)
     src = req.json()
 
@@ -30,7 +30,7 @@ def get_wall_posts(group,count):
 
 # проверяем на критерии, сверяем с датой последнего обработанного, готовим под отправку
 def check_wall_posts(group):
-    file = group + '.json'
+    file = path + '/' + group + '.json'
     # приняли из json данные выгрузки
     with open(file, 'r', encoding='utf-8') as file:
         src = json.load(file)
@@ -38,7 +38,7 @@ def check_wall_posts(group):
 
         if 'error' in src.keys():
             return src['error']['error_msg']
-        else return src.keys()
+        else: return src.keys()
 
     posts = reversed(src['response']['items'])
 
@@ -127,7 +127,7 @@ def check_wall_posts(group):
                             send_post[date]['doc'].append(dl)
 
     # здесь возвращаем док с постами, готовыми к отправке
-    file = group + '-posts.json'
+    file = path + '/' + group + '-posts.json'
     with open(file, 'w+') as file:
         json.dump(send_post, file, ensure_ascii=False, indent=4)
 
@@ -138,11 +138,13 @@ def check_wall_posts(group):
         newdate = str(max(new_postdate))
     else:
         newdate = olddate
-    with open('cpbgroups.py', 'r') as vkgroups:
+
+    cpbgroup = path + '/' + 'cpbgroups.py'
+    with open(cpbgroup, 'r') as vkgroups:
         inst = vkgroups.read()
     inst = inst.replace(olddate,newdate)
 
-    with open('cpbgroups.py', 'w') as vkgroups:
+    with open(cpbgroup, 'w') as vkgroups:
         vkgroups.write(inst)
 
 #отправляем посты в телеграм канал
@@ -163,7 +165,7 @@ def send_posts(group):
     global channel
 
     # приняли из json данные выгрузки
-    file = str(group)+'-posts.json'
+    file = path + '/' + str(group)+'-posts.json'
     with open(file, 'r', encoding='utf-8') as file:
         src = json.load(file)
     for post in src.keys():
@@ -191,11 +193,11 @@ def send_posts(group):
                 bot.send_document(channel, doc)
     time.sleep(10)
     #os.remove(f'{group}.json')
-    file1 = str(group)+'.json'
-    os.remove(file1)
+    group_src = path + '/' + str(group)+'.json'
+    os.remove(group_src)
     #os.remove(f'{group}-posts.json')
-    file2 = str(group)+'-posts.json'
-    os.remove(file2)
+    group_posts = path + '/' + str(group)+'-posts.json'
+    os.remove(group_posts)
 
 
 if __name__ == '__main__':
