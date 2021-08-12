@@ -11,7 +11,7 @@ bitlytoken = config['bitly']['bitlytoken']
 
 path = os.getcwd()
 
-config.read('cpbgroups.py')
+config.read('cpbgroups.ini')
 groups = config.options('groups')
 
 
