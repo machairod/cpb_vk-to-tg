@@ -1,19 +1,23 @@
 # This Python file uses the following encoding: utf-8
 import requests, os, telebot, json, time, configparser
 
-config = configparser.ConfigParser()
-config.read('settings.ini')
+path = os.path.dirname(__file__)
 
-token = config['VK']['token']
+
+config = configparser.ConfigParser()
+
+configfile = os.path.join(path, 'settings.ini')
+config.read(configfile)
+
 bot_token = config['Telegram']['bot_token']
+token = config['VK']['token']
 channel = config['Telegram']['channel']
 bitlytoken = config['bitly']['bitlytoken']
 
-path = os.getcwd()
+cpbgroups_file = os.path.join(path, 'cpbgroups.py')
 
-config.read('cpbgroups.ini')
+config.read(cpbgroups_file)
 groups = config.options('groups')
-
 
 # Инициализируем телеграмм бота
 bot = telebot.TeleBot(bot_token)
