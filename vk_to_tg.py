@@ -26,9 +26,9 @@ bot = telebot.TeleBot(bot_token)
 def get_wall_posts(group,count):
     count = count
     if group.isdigit():
-        url = 'https://api.vk.com/method/wall.get?owner_id=-'+str(group)+'&count='+str(count)+'&access_token='+str(token)+'&v=5.52'
+        url = 'https://api.vk.com/method/wall.get?owner_id=-'+str(group)+'&count='+str(count)+'&access_token='+str(token)+'&v=5.131'
     else:
-        url = 'https://api.vk.com/method/wall.get?domain='+str(group)+'&count='+str(count)+'&access_token='+str(token)+'&v=5.52'
+        url = 'https://api.vk.com/method/wall.get?domain='+str(group)+'&count='+str(count)+'&access_token='+str(token)+'&v=5.131'
     file = path + '/' + group + '.json'
     req = requests.get(url)
     src = req.json()
@@ -39,11 +39,15 @@ def get_wall_posts(group,count):
 # проверяем на критерии, сверяем с датой последнего обработанного, готовим под отправку
 def check_wall_posts(group):
     file = path + '/' + group + '.json'
+    if os.path.isfile(file) == False:
+        err_txt = f'Файл для группы {group} не найден'
+        return err_txt
+
     # приняли из json данные выгрузки
     with open(file, 'r', encoding='utf-8') as file:
         src = json.load(file)
-    if 'response' not in src.keys():
 
+    if 'response' not in src.keys():
         if 'error' in src.keys():
             return src['error']['error_msg']
         else: return src.keys()
@@ -83,17 +87,17 @@ def check_wall_posts(group):
                         # если прикреп картинка
                         if add['type'] == 'photo':
                             send_post[date]['photo'] = []
-                            photos.append(add)
+                            photos.append(add['photo'])
 
                         # если прикреп видео
                         if add['type'] == 'video':
                             send_post[date]['video'] = []
-                            videos.append(add)
+                            videos.append(add['video'])
 
                         # если прикреп файл
                         if add['type'] == 'doc':
                             send_post[date]['doc'] = []
-                            docs.append(add)
+                            docs.append(add['doc'])
 
                         # если прикреп ссылка
                         if add['type'] == 'link':
@@ -107,31 +111,38 @@ def check_wall_posts(group):
                             src = response.json()
                             send_post[date]['link'] = src['link']
 
-                        # если прикреп картинка - обработка массива
-                        if len(photos) > 0:
-                            img = photos[0]['photo']
-                            addy = []
-                            # ищем ссылку на наибольшее разрешение фото
-                            for i in img:
-                                if 'photo_' in i:
-                                    y = i.lstrip('photo_')
-                                    addy.append(y)
-                            y = 'photo_'+ max(addy)
-                            photo = img[y]
-                            send_post[date]['photo'].append(photo)
+                    # если прикреп картинка - обработка массива
+                    if len(photos) > 0:
+                        img = photos[0]
+                        addy = 0
+                        img_url = ''
+                        # ищем ссылку на наибольшее разрешение фото
+                        for i in img['sizes']:
+                            if 'height' in i:
+                                y = i['height']
+                                if y > addy:
+                                    addy = y
+                                    y = 0
+                                    img_url = i['url']
+                        if addy > 0:
+                            trim = img_url.find('?')
+                            impg = img_url.find('/imp')
+                            img_url = img_url[:impg]+img_url[(impg+5):trim]
+                            send_post[date]['photo'] = img_url
 
                         # если прикреп видео - обработка массива
-                        if len(videos) > 0:
-                            video = videos[0]
-                            owner_id = str(video['video']['owner_id'])
-                            vid_id = str(video["video"]['id'])
-                            access_key = str(video['video']['access_key'])
-                            url = "https://vk.com/video"+owner_id+"_"+vid_id
-                            send_post[date]['video'].append(url)
+                    if len(videos) > 0:
+                        video = videos[0]
+                        owner_id = str(video['owner_id'])
+                        vid_id = str(video['id'])
+                        access_key = str(video['access_key'])
+                        vid_url = "https://vk.com/video"+owner_id+"_"+vid_id
+                        send_post[date]['video'].append(vid_url)
 
-                        # если прикреп файл - обработка массива
+                    # если прикреп файл - обработка массива
+                    if len(docs) > 0:
                         for doc in docs:
-                            dl = doc['doc']['url']
+                            dl = doc['url']
                             send_post[date]['doc'].append(dl)
 
     # здесь возвращаем док с постами, готовыми к отправке
@@ -188,11 +199,11 @@ def send_posts(group):
             bot.send_message(channel,link, disable_web_page_preview=False)
 
         if 'photo' in src[post]:
-            photo = src[post]['photo'][0]
+            photo = src[post]['photo']
             bot.send_photo(channel, photo)
 
         if 'video' in src[post]:
-            video = src[post]['video'][0]
+            video = 'Ccылка на видео: ' + src[post]['video'][0]
             bot.send_message(channel,video, disable_web_page_preview=False)
 
         if 'doc' in src[post]:
@@ -210,11 +221,11 @@ def send_posts(group):
 
 
 if __name__ == '__main__':
-    print(time.ctime()+" GMT 0")
+    #print(time.ctime()+" GMT 0")
 
     for group in groups:
         get_wall_posts(group,3)
         check_wall_posts(group)
         send_posts(group)
-        print('made for '+group)
+        # print('made for '+group)
         time.sleep(10)
