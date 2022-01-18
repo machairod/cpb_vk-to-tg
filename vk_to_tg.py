@@ -1,34 +1,16 @@
 # This Python file uses the following encoding: utf-8
 import requests, os, telebot, json, time, configparser
 
-path = os.path.dirname(__file__)
-
-
-config = configparser.ConfigParser()
-
-configfile = os.path.join(path, 'settings.ini')
-config.read(configfile)
-
-bot_token = config['Telegram']['bot_token']
-token = config['VK']['token']
-channel = config['Telegram']['channel']
-bitlytoken = config['bitly']['bitlytoken']
-
-cpbgroups_file = os.path.join(path, 'cpbgroups.py')
-
-config.read(cpbgroups_file)
-groups = config.options('groups')
-
-# Инициализируем телеграмм бота
-bot = telebot.TeleBot(bot_token)
 
 # получаем последние *count постов со стен групп вк
-def get_wall_posts(group,count):
+def get_wall_posts(group, count):
     count = count
     if group.isdigit():
-        url = 'https://api.vk.com/method/wall.get?owner_id=-'+str(group)+'&count='+str(count)+'&access_token='+str(token)+'&v=5.131'
+        url = 'https://api.vk.com/method/wall.get?owner_id=-' + str(group) + '&count=' + str(
+            count) + '&access_token=' + str(token) + '&v=5.131'
     else:
-        url = 'https://api.vk.com/method/wall.get?domain='+str(group)+'&count='+str(count)+'&access_token='+str(token)+'&v=5.131'
+        url = 'https://api.vk.com/method/wall.get?domain=' + str(group) + '&count=' + str(
+            count) + '&access_token=' + str(token) + '&v=5.131'
     file = path + '/' + group + '.json'
     req = requests.get(url)
     src = req.json()
@@ -36,10 +18,12 @@ def get_wall_posts(group,count):
     with open(file, 'w+') as file:
         json.dump(src, file, ensure_ascii=False, indent=4)
 
+
 # проверяем на критерии, сверяем с датой последнего обработанного, готовим под отправку
-def check_wall_posts(group):
+def check_wall_posts(group, groupname):
+    global groupconfig
     file = path + '/' + group + '.json'
-    if os.path.isfile(file) == False:
+    if not os.path.isfile(file):
         err_txt = f'Файл для группы {group} не найден'
         return err_txt
 
@@ -50,12 +34,13 @@ def check_wall_posts(group):
     if 'response' not in src.keys():
         if 'error' in src.keys():
             return src['error']['error_msg']
-        else: return src.keys()
+        else:
+            return src.keys()
 
     posts = reversed(src['response']['items'])
 
     # дата публикации в юникс последнего обработанного поста, основной идентификатор
-    postdate = int(config['groups'][group])
+    postdate = int(groupconfig[group]['post'])
     # список дат публикации новых постов
     new_postdate = []
     # словарь готовых к отправке постов
@@ -70,10 +55,11 @@ def check_wall_posts(group):
 
             # если он еще и не репост
             if 'copy_history' not in post:
-                send_post[date]={}
+                send_post[date] = {}
 
                 # заносим в словарь, добавляем ссылку на оригинальный пост и подчищаем верстку
-                send_post[date]['text'] = 'Ссылка на пост: '+'https://vk.com/wall' + str(post['from_id']) + '_' + str(post['id'])+'\n\n\n'+post['text']
+                send_post[date]['text'] = groupname + '\n' + 'Ссылка на пост: ' + 'https://vk.com/wall' + str(
+                    post['from_id']) + '_' + str(post['id']) + '\n\n\n' + post['text']
                 send_post[date]['text'] = (send_post[date]['text'].replace('\n \n', '\n')).replace('\n\n', '\n')
 
                 # Проверяем есть ли что-то прикрепленное к посту
@@ -104,7 +90,7 @@ def check_wall_posts(group):
                             link = add['link']['url']
                             # сократили ссылку
                             data = json.dumps({"long_url": link})
-                            bttoken='Bearer '+ bitlytoken
+                            bttoken = 'Bearer ' + bitlytoken
                             response = requests.post("https://api-ssl.bitly.com/v4/shorten",
                                                      data=data,
                                                      headers={'Authorization': bttoken})
@@ -127,7 +113,7 @@ def check_wall_posts(group):
                         if addy > 0:
                             trim = img_url.find('?')
                             impg = img_url.find('/imp')
-                            img_url = img_url[:impg]+img_url[(impg+5):trim]
+                            img_url = img_url[:impg] + img_url[(impg + 5):trim]
                             send_post[date]['photo'] = img_url
 
                         # если прикреп видео - обработка массива
@@ -136,7 +122,7 @@ def check_wall_posts(group):
                         owner_id = str(video['owner_id'])
                         vid_id = str(video['id'])
                         access_key = str(video['access_key'])
-                        vid_url = "https://vk.com/video"+owner_id+"_"+vid_id
+                        vid_url = "https://vk.com/video" + owner_id + "_" + vid_id
                         send_post[date]['video'].append(vid_url)
 
                     # если прикреп файл - обработка массива
@@ -150,26 +136,23 @@ def check_wall_posts(group):
     with open(file, 'w+') as file:
         json.dump(send_post, file, ensure_ascii=False, indent=4)
 
-
     # #сохраняем в данных группы дату последнего обработанного поста
     olddate = str(postdate)
-    if len(new_postdate)>0:
+    if len(new_postdate) > 0:
         newdate = str(max(new_postdate))
     else:
         newdate = olddate
 
     cpbgroup = path + '/' + 'cpbgroups.py'
-    with open(cpbgroup, 'r') as vkgroups:
-        inst = vkgroups.read()
-    inst = inst.replace(olddate,newdate)
+    groupconfig.set(group, 'post', newdate)
 
     with open(cpbgroup, 'w') as vkgroups:
-        vkgroups.write(inst)
+        groupconfig.write(vkgroups)
 
-#отправляем посты в телеграм канал
+
+# отправляем посты в телеграм канал
 def send_posts(group):
-
-# В телеграмме есть ограничения на длину одного сообщения в 4091 символ, разбиваем длинные сообщения на части
+    # В телеграмме есть ограничения на длину одного сообщения в 4091 символ, разбиваем длинные сообщения на части
     def split(text):
         message_breakers = ['\n']
         max_message_length = 4091
@@ -185,7 +168,7 @@ def send_posts(group):
     global channel
 
     # приняли из json данные выгрузки
-    file = path + '/' + str(group)+'-posts.json'
+    file = path + '/' + str(group) + '-posts.json'
     with open(file, 'r', encoding='utf-8') as file:
         src = json.load(file)
 
@@ -196,7 +179,7 @@ def send_posts(group):
 
         if 'link' in src[post]:
             link = src[post]['link']
-            bot.send_message(channel,link, disable_web_page_preview=False)
+            bot.send_message(channel, link, disable_web_page_preview=False)
 
         if 'photo' in src[post]:
             photo = src[post]['photo']
@@ -204,7 +187,7 @@ def send_posts(group):
 
         if 'video' in src[post]:
             video = 'Ccылка на видео: ' + src[post]['video'][0]
-            bot.send_message(channel,video, disable_web_page_preview=False)
+            bot.send_message(channel, video, disable_web_page_preview=False)
 
         if 'doc' in src[post]:
             docs = src[post]['doc']
@@ -212,20 +195,40 @@ def send_posts(group):
                 bot.send_document(channel, doc)
 
     time.sleep(10)
-    #os.remove(f'{group}.json')
-    group_src = path + '/' + str(group)+'.json'
+    # os.remove(f'{group}.json')
+    group_src = path + '/' + str(group) + '.json'
     os.remove(group_src)
-    #os.remove(f'{group}-posts.json')
-    group_posts = path + '/' + str(group)+'-posts.json'
+    # os.remove(f'{group}-posts.json')
+    group_posts = path + '/' + str(group) + '-posts.json'
     os.remove(group_posts)
 
 
 if __name__ == '__main__':
-    #print(time.ctime()+" GMT 0")
+    # print(time.ctime()+" GMT 0")
+
+    path = os.path.dirname(__file__)
+
+    configfile = os.path.join(path, 'settings.ini')
+    config = configparser.ConfigParser()
+    config.read(configfile)
+
+    bot_token = config['Telegram']['bot_token']
+    token = config['VK']['token']
+    channel = config['Telegram']['channel']
+    bitlytoken = config['bitly']['bitlytoken']
+
+    cpbgroups_file = os.path.join(path, 'cpbgroups.py')
+    groupconfig = configparser.ConfigParser()
+    groupconfig.read(cpbgroups_file)
+
+    groups = groupconfig.sections()
+
+    # Инициализируем телеграмм бота
+    bot = telebot.TeleBot(bot_token)
 
     for group in groups:
-        get_wall_posts(group,3)
-        check_wall_posts(group)
+        get_wall_posts(group, 3)
+        check_wall_posts(group, groupconfig[group]['name'])
         send_posts(group)
         #print('made for '+group)
         time.sleep(10)
