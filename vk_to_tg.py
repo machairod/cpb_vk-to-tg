@@ -227,5 +227,5 @@ if __name__ == '__main__':
         get_wall_posts(group,3)
         check_wall_posts(group)
         send_posts(group)
-        # print('made for '+group)
+        #print('made for '+group)
         time.sleep(10)
