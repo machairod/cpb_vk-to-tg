@@ -231,5 +231,4 @@ if __name__ == '__main__':
         check_wall_posts(group, groupconfig[group]['name'])
         send_posts(group)
         # print('made for '+group)
-        # time.sleep(10)
-        time.sleep(5)
+        time.sleep(10)
